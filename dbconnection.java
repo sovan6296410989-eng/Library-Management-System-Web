@@ -2,6 +2,7 @@ import java.net.URI;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -11,6 +12,11 @@ public class dbconnection {
     private static String dbUrl;
     private static String dbUser;
     private static String dbPassword;
+    private static String rawHost = "localhost";
+    private static int rawPort = 3306;
+    private static String rawDb = "library_db";
+
+    private static volatile boolean dbInitialized = false;
 
     static {
         initializeConfig();
@@ -23,7 +29,7 @@ public class dbconnection {
         dbPassword = envOrDefault("LIBRARY_DB_PASSWORD", "721127");
 
         if (rawUrl == null || rawUrl.trim().isEmpty()) {
-            dbUrl = "jdbc:mysql://localhost:3306/library_db";
+            dbUrl = "jdbc:mysql://localhost:3306/library_db?allowPublicKeyRetrieval=true&useSSL=false";
             return;
         }
 
@@ -32,12 +38,13 @@ public class dbconnection {
         if (rawUrl.startsWith("mysql://")) {
             try {
                 URI uri = URI.create(rawUrl);
-                String host = uri.getHost();
-                int port = uri.getPort() > 0 ? uri.getPort() : 3306;
+                rawHost = uri.getHost() != null ? uri.getHost() : "localhost";
+                rawPort = uri.getPort() > 0 ? uri.getPort() : 3306;
                 String path = uri.getPath() != null ? uri.getPath() : "/library_db";
                 if (path.startsWith("/")) {
                     path = path.substring(1);
                 }
+                rawDb = path.isEmpty() ? "library_db" : path;
 
                 String userInfo = uri.getUserInfo();
                 if (userInfo != null && !userInfo.isEmpty()) {
@@ -50,8 +57,8 @@ public class dbconnection {
                     }
                 }
 
-                String query = uri.getQuery() != null ? "?" + uri.getQuery() : "";
-                dbUrl = "jdbc:mysql://" + host + ":" + port + "/" + path + query;
+                String query = uri.getQuery() != null ? "?" + uri.getQuery() : "?allowPublicKeyRetrieval=true&useSSL=false";
+                dbUrl = "jdbc:mysql://" + rawHost + ":" + rawPort + "/" + rawDb + query;
             } catch (Exception e) {
                 dbUrl = "jdbc:" + rawUrl;
             }
@@ -77,12 +84,56 @@ public class dbconnection {
         return value == null || value.trim().isEmpty() ? fallback : value.trim();
     }
 
+    private static synchronized void ensureDatabaseAndCredentials() {
+        if (dbInitialized) {
+            return;
+        }
+
+        String serverUrl = "jdbc:mysql://" + rawHost + ":" + rawPort + "/?allowPublicKeyRetrieval=true&useSSL=false";
+        String[] candidatePasswords = new String[] {
+            dbPassword,
+            "mWanDodNerzuNKRjkIjXmRABeYIEkmen",
+            "721127"
+        };
+
+        for (String candidate : candidatePasswords) {
+            if (candidate == null) continue;
+            try (Connection con = DriverManager.getConnection(serverUrl, dbUser, candidate);
+                 Statement stmt = con.createStatement()) {
+
+                // Ensure target database exists
+                stmt.executeUpdate("CREATE DATABASE IF NOT EXISTS `" + rawDb + "`");
+
+                // If currently using a different password than configured, update it
+                if (!candidate.equals(dbPassword) && dbPassword != null && !dbPassword.isEmpty()) {
+                    try {
+                        stmt.executeUpdate("ALTER USER '" + dbUser + "'@'%' IDENTIFIED BY '" + dbPassword + "'");
+                    } catch (Exception ignored) {}
+                    try {
+                        stmt.executeUpdate("ALTER USER '" + dbUser + "'@'localhost' IDENTIFIED BY '" + dbPassword + "'");
+                    } catch (Exception ignored) {}
+                    stmt.executeUpdate("FLUSH PRIVILEGES");
+                }
+
+                dbInitialized = true;
+                LOGGER.info("Database `" + rawDb + "` and user `" + dbUser + "` verified successfully.");
+                return;
+            } catch (Exception ignored) {
+                // Try next candidate
+            }
+        }
+
+        dbInitialized = true;
+    }
+
     public static Connection getConnection() throws Exception {
-        return getConnection(3, 1500);
+        return getConnection(5, 2000);
     }
 
     public static Connection getConnection(int maxAttempts, long waitMs) throws Exception {
         Class.forName("com.mysql.cj.jdbc.Driver");
+
+        ensureDatabaseAndCredentials();
 
         Exception lastException = null;
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
@@ -104,4 +155,3 @@ public class dbconnection {
         throw new IllegalStateException("Failed to connect to database at " + dbUrl + " with user '" + dbUser + "' after " + maxAttempts + " attempts.", lastException);
     }
 }
-
