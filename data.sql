@@ -47,6 +47,16 @@ CREATE TABLE IF NOT EXISTS `return_requests` (
   `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+-- 6. Table structure for member_requests
+CREATE TABLE IF NOT EXISTS `member_requests` (
+  `request_id` INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  `user_id` INT NOT NULL,
+  `member_id` INT NOT NULL,
+  `name` VARCHAR(120) NOT NULL,
+  `status` VARCHAR(10) NOT NULL DEFAULT 'PENDING',
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Data for books
 INSERT INTO `books` (`book_id`, `title`, `author`, `available`) VALUES
 (101, 'english learning', 'john', 0),

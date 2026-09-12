@@ -248,6 +248,24 @@ public class Server {
                 }
                 return;
             }
+            if ("/api/member-requests".equals(path) && "POST".equalsIgnoreCase(method)) {
+                User user = requireUser(exchange);
+                if (user != null) {
+                    createMemberRequest(exchange, user);
+                }
+                return;
+            }
+            if ("/api/member-requests".equals(path) && "GET".equalsIgnoreCase(method)) {
+                if (requireAdmin(exchange) != null) getMemberRequests(exchange);
+                return;
+            }
+            if (path.matches("/api/member-requests/[0-9]+/(approve|reject)")
+                    && "PUT".equalsIgnoreCase(method)) {
+                if (requireAdmin(exchange) != null) {
+                    processMemberRequest(exchange, getIdFromPath(path), path.endsWith("/approve"));
+                }
+                return;
+            }
             if (path.matches("/api/books/[0-9]+") && "DELETE".equalsIgnoreCase(method)) {
                 if (requireAdmin(exchange) != null) {
                     deleteBook(exchange, getIdFromPath(path));
@@ -455,6 +473,13 @@ public class Server {
                     + "request_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,"
                     + "user_id INT NOT NULL,"
                     + "book_id INT NOT NULL,"
+                    + "status VARCHAR(10) NOT NULL DEFAULT 'PENDING',"
+                    + "created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP)");
+            statement.executeUpdate("CREATE TABLE IF NOT EXISTS member_requests ("
+                    + "request_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,"
+                    + "user_id INT NOT NULL,"
+                    + "member_id INT NOT NULL,"
+                    + "name VARCHAR(120) NOT NULL,"
                     + "status VARCHAR(10) NOT NULL DEFAULT 'PENDING',"
                     + "created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP)");
             statement.executeUpdate("CREATE TABLE IF NOT EXISTS users ("
@@ -920,6 +945,136 @@ public class Server {
             ps.setInt(1, bookId);
             ps.executeUpdate();
         } catch (Exception ignored) {
+        }
+    }
+
+    private static void createMemberRequest(HttpExchange exchange, User user) throws Exception {
+        String body = readRequestBody(exchange);
+        String memberIdStr = requiredJson(body, "memberId", "Member ID is required");
+        int memberId = positiveInt(memberIdStr, "Member ID");
+        String name = requiredJson(body, "name", "Member name is required").trim();
+        if (name.isEmpty()) {
+            sendError(exchange, 400, "Member name is required");
+            return;
+        }
+
+        try (Connection con = dbconnection.getConnection();
+             PreparedStatement checkMember = con.prepareStatement("SELECT member_id FROM members WHERE member_id = ?");
+             PreparedStatement checkPendingId = con.prepareStatement(
+                     "SELECT request_id FROM member_requests WHERE member_id = ? AND status = 'PENDING'");
+             PreparedStatement checkUserPending = con.prepareStatement(
+                     "SELECT request_id FROM member_requests WHERE user_id = ? AND status = 'PENDING'")) {
+
+            checkMember.setInt(1, memberId);
+            try (ResultSet rs = checkMember.executeQuery()) {
+                if (rs.next()) {
+                    sendError(exchange, 409, "Member ID is already registered");
+                    return;
+                }
+            }
+
+            checkPendingId.setInt(1, memberId);
+            try (ResultSet rs = checkPendingId.executeQuery()) {
+                if (rs.next()) {
+                    sendError(exchange, 409, "A membership request with this Member ID is already pending");
+                    return;
+                }
+            }
+
+            checkUserPending.setInt(1, user.id);
+            try (ResultSet rs = checkUserPending.executeQuery()) {
+                if (rs.next()) {
+                    sendError(exchange, 409, "You already have a pending membership request");
+                    return;
+                }
+            }
+        }
+
+        try (Connection con = dbconnection.getConnection();
+             PreparedStatement ps = con.prepareStatement(
+                     "INSERT INTO member_requests (user_id, member_id, name) VALUES (?, ?, ?)",
+                     Statement.RETURN_GENERATED_KEYS)) {
+            ps.setInt(1, user.id);
+            ps.setInt(2, memberId);
+            ps.setString(3, name);
+            ps.executeUpdate();
+            try (ResultSet keys = ps.getGeneratedKeys()) {
+                int requestId = keys.next() ? keys.getInt(1) : 0;
+                sendResponse(exchange, 202, "{\"message\":\"Membership request submitted to administrator\",\"requestId\":"
+                        + requestId + "}");
+            }
+        }
+    }
+
+    private static void getMemberRequests(HttpExchange exchange) throws Exception {
+        try (Connection con = dbconnection.getConnection();
+             PreparedStatement ps = con.prepareStatement(
+                     "SELECT r.request_id, r.member_id, r.name AS member_name, u.name AS user_name, u.email, r.status "
+                     + "FROM member_requests r JOIN users u ON u.id = r.user_id "
+                     + "WHERE r.status = 'PENDING' ORDER BY r.created_at");
+             ResultSet rs = ps.executeQuery()) {
+            StringBuilder json = new StringBuilder("[");
+            while (rs.next()) {
+                if (json.length() > 1) json.append(',');
+                json.append("{\"requestId\":").append(rs.getInt("request_id"))
+                        .append(",\"memberId\":").append(rs.getInt("member_id"))
+                        .append(",\"name\":\"").append(escapeJson(rs.getString("member_name")))
+                        .append("\",\"userName\":\"").append(escapeJson(rs.getString("user_name")))
+                        .append("\",\"email\":\"").append(escapeJson(rs.getString("email")))
+                        .append("\",\"status\":\"").append(rs.getString("status")).append("\"}");
+            }
+            sendResponse(exchange, 200, json.append(']').toString());
+        }
+    }
+
+    private static void processMemberRequest(HttpExchange exchange, int requestId, boolean approve)
+            throws Exception {
+        try (Connection con = dbconnection.getConnection()) {
+            con.setAutoCommit(false);
+            try (PreparedStatement find = con.prepareStatement(
+                    "SELECT member_id, name FROM member_requests WHERE request_id = ? AND status = 'PENDING'")) {
+                find.setInt(1, requestId);
+                try (ResultSet rs = find.executeQuery()) {
+                    if (!rs.next()) {
+                        sendError(exchange, 404, "Pending membership request not found");
+                        return;
+                    }
+                    int memberId = rs.getInt("member_id");
+                    String name = rs.getString("name");
+
+                    if (approve) {
+                        try (PreparedStatement insertMember = con.prepareStatement(
+                                "INSERT INTO members (member_id, name) VALUES (?, ?)")) {
+                            insertMember.setInt(1, memberId);
+                            insertMember.setString(2, name);
+                            insertMember.executeUpdate();
+                        } catch (SQLException e) {
+                            if (e.getErrorCode() == 1062) {
+                                con.rollback();
+                                sendError(exchange, 409, "Member ID is already registered");
+                                return;
+                            }
+                            throw e;
+                        }
+                    }
+
+                    try (PreparedStatement update = con.prepareStatement(
+                            "UPDATE member_requests SET status = ? WHERE request_id = ?")) {
+                        update.setString(1, approve ? "APPROVED" : "REJECTED");
+                        update.setInt(2, requestId);
+                        update.executeUpdate();
+                    }
+
+                    con.commit();
+                    sendResponse(exchange, 200, "{\"message\":\"Membership request "
+                            + (approve ? "approved and member registered successfully\"}" : "rejected\"}"));
+                }
+            } catch (Exception e) {
+                con.rollback();
+                throw e;
+            } finally {
+                con.setAutoCommit(true);
+            }
         }
     }
 

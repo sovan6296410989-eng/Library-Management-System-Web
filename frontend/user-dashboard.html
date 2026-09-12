@@ -15,7 +15,9 @@
             <p>Member Catalogue</p>
         </div>
         <ul class="nav-menu">
-            <li><button type="button" class="nav-link user-nav-button active" onclick="openUserCatalogue()">📖 Catalogue</button></li>
+            <li><button type="button" class="nav-link user-nav-button active" id="userCatalogueNavBtn" onclick="openUserSection('userDashboard')">📖 Catalogue</button></li>
+            <li><button type="button" class="nav-link user-nav-button" id="userMembersNavBtn" onclick="openUserSection('userMembersSection')">👥 Members</button></li>
+            <li><button type="button" class="nav-link user-nav-button" onclick="openUserMemberModal()">➕ Join as Member</button></li>
         </ul>
         <div class="sidebar-footer">
             <span>Read-only access</span>
@@ -28,11 +30,12 @@
             <div class="page-title">
                 <span class="title-icon">📖</span>
                 <div>
-                    <h1>Library Catalogue</h1>
-                    <p>Browse available books</p>
+                    <h1 id="userPageTitle">Library Catalogue</h1>
+                    <p id="userPageSubtitle">Browse available books</p>
                 </div>
             </div>
             <div class="topbar-actions">
+                <button class="primary-btn" onclick="openUserMemberModal()" style="padding: 8px 16px; font-size: 13px;">+ Request Membership</button>
                 <div class="current-user-badge"></div>
                 <button class="logout-btn" onclick="logout()">Logout</button>
             </div>
@@ -57,10 +60,41 @@
                     <tbody id="userBookTableBody"></tbody>
                 </table>
             </div>
+        </section>
 
+        <section id="userMembersSection" class="content-section" style="display: none;">
+            <div class="table-container">
+                <div class="table-header">
+                    <div><h2>Library Members</h2><p>Registered members in the library</p></div>
+                    <button class="primary-btn" onclick="openUserMemberModal()">+ Request Membership</button>
+                </div>
+                <table>
+                    <thead><tr><th>Member ID</th><th>Member Name</th></tr></thead>
+                    <tbody id="userMemberTableBody"></tbody>
+                </table>
+            </div>
         </section>
     </main>
 </div>
+
+<!-- USER MEMBER REQUEST MODAL -->
+<div id="userMemberModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeUserMemberModal()">&times;</span>
+        <div class="modal-icon">👥</div>
+        <h2>Request Member Registration</h2>
+        <p>Submit your details to register as a library member. An administrator will review and approve your request.</p>
+        
+        <label>Member ID</label>
+        <input type="number" id="userMemberId" min="1" step="1" placeholder="Enter preferred Member ID (e.g. 101)">
+        
+        <label>Member Name</label>
+        <input type="text" id="userMemberName" placeholder="Enter your full name">
+        
+        <button class="primary-btn modal-btn" onclick="submitMemberRequest()">Submit Membership Request</button>
+    </div>
+</div>
+
 <script src="script.js"></script>
 </body>
 </html>

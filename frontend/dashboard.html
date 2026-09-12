@@ -54,6 +54,13 @@
             </li>
 
             <li>
+                <a href="#" class="nav-link" data-section="member-requests"
+                   onclick="showSection('member-requests'); return false;">
+                    👥 Member Requests
+                </a>
+            </li>
+
+            <li>
 
                 <a href="#"
                    class="nav-link active"
@@ -567,6 +574,19 @@
                 <table>
                     <thead><tr><th>Request ID</th><th>Book</th><th>User</th><th>Email</th><th>Action</th></tr></thead>
                     <tbody id="returnRequestsTableBody"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <section id="member-requests" class="content-section">
+            <div class="section-page-header">
+                <div><h2>Member Requests</h2><p>Approve or reject member registration requests.</p></div>
+                <button class="primary-btn" onclick="loadMemberRequests()">Refresh</button>
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead><tr><th>Request ID</th><th>Member ID</th><th>Requested Name</th><th>User Account</th><th>Email</th><th>Action</th></tr></thead>
+                    <tbody id="memberRequestsTableBody"></tbody>
                 </table>
             </div>
         </section>

@@ -401,15 +401,79 @@ function showSection(sectionId) {
     if (sectionId === "return-requests") {
         loadReturnRequests();
     }
+    if (sectionId === "member-requests") {
+        loadMemberRequests();
+    }
 }
 
 function openUserCatalogue() {
-    const catalogue = document.getElementById("userDashboard");
-    if (!catalogue) return;
-    document.querySelectorAll(".user-nav-button").forEach(button => {
-        button.classList.toggle("active", button.textContent.includes("Catalogue"));
-    });
-    catalogue.scrollIntoView({ behavior: "smooth", block: "start" });
+    openUserSection("userDashboard");
+}
+
+function openUserSection(sectionId) {
+    const dashboard = document.getElementById("userDashboard");
+    const membersSection = document.getElementById("userMembersSection");
+    const catBtn = document.getElementById("userCatalogueNavBtn");
+    const memBtn = document.getElementById("userMembersNavBtn");
+    const pageTitle = document.getElementById("userPageTitle");
+    const pageSubtitle = document.getElementById("userPageSubtitle");
+
+    if (dashboard) dashboard.style.display = sectionId === "userDashboard" ? "block" : "none";
+    if (membersSection) membersSection.style.display = sectionId === "userMembersSection" ? "block" : "none";
+
+    if (catBtn) catBtn.classList.toggle("active", sectionId === "userDashboard");
+    if (memBtn) memBtn.classList.toggle("active", sectionId === "userMembersSection");
+
+    if (sectionId === "userMembersSection") {
+        if (pageTitle) pageTitle.textContent = "Library Members";
+        if (pageSubtitle) pageSubtitle.textContent = "View registered library members";
+        loadMembers();
+    } else {
+        if (pageTitle) pageTitle.textContent = "Library Catalogue";
+        if (pageSubtitle) pageSubtitle.textContent = "Browse available books";
+    }
+}
+
+function openUserMemberModal() {
+    const modal = document.getElementById("userMemberModal");
+    if (!modal) return;
+    const nameInput = document.getElementById("userMemberName");
+    if (nameInput && !nameInput.value) {
+        const storedName = localStorage.getItem("userName");
+        if (storedName) nameInput.value = storedName;
+    }
+    modal.classList.add("show");
+}
+
+function closeUserMemberModal() {
+    const modal = document.getElementById("userMemberModal");
+    if (modal) modal.classList.remove("show");
+}
+
+async function submitMemberRequest() {
+    const idInput = document.getElementById("userMemberId");
+    const nameInput = document.getElementById("userMemberName");
+    const memberId = idInput ? idInput.value.trim() : "";
+    const name = nameInput ? nameInput.value.trim() : "";
+
+    if (!memberId || !/^[1-9]\d*$/.test(memberId)) {
+        return alert("Please enter a valid Member ID (positive number).");
+    }
+    if (!name) {
+        return alert("Please enter your Member Name.");
+    }
+
+    try {
+        const response = await apiRequest("/member-requests", {
+            method: "POST",
+            body: JSON.stringify({ memberId: Number(memberId), name })
+        });
+        alert(response.message || "Membership request submitted successfully.");
+        if (idInput) idInput.value = "";
+        closeUserMemberModal();
+    } catch (error) {
+        showApiError(error);
+    }
 }
 
 function searchBooks() {
@@ -531,6 +595,39 @@ async function processReturnRequest(requestId, action) {
     try {
         await apiRequest(`/return-requests/${requestId}/${action}`, { method: "PUT" });
         await loadReturnRequests();
+        await loadLibraryData();
+    } catch (error) {
+        showApiError(error);
+    }
+}
+
+async function loadMemberRequests() {
+    const table = document.getElementById("memberRequestsTableBody");
+    if (!table) return;
+    try {
+        const requests = await apiRequest("/member-requests");
+        table.innerHTML = requests.length
+            ? requests.map(request => `<tr>
+                <td>${request.requestId}</td>
+                <td><strong>#${request.memberId}</strong></td>
+                <td>${escapeHtml(request.name)}</td>
+                <td>${escapeHtml(request.userName)}</td>
+                <td>${escapeHtml(request.email)}</td>
+                <td>
+                    <button class="success-btn table-btn" onclick="processMemberRequest(${request.requestId}, 'approve')">Approve</button>
+                    <button class="danger-btn table-btn" onclick="processMemberRequest(${request.requestId}, 'reject')">Reject</button>
+                </td>
+            </tr>`).join("")
+            : '<tr><td colspan="6">No pending member requests.</td></tr>';
+    } catch (error) {
+        table.innerHTML = `<tr><td colspan="6">${escapeHtml(error.message)}</td></tr>`;
+    }
+}
+
+async function processMemberRequest(requestId, action) {
+    try {
+        await apiRequest(`/member-requests/${requestId}/${action}`, { method: "PUT" });
+        await loadMemberRequests();
         await loadLibraryData();
     } catch (error) {
         showApiError(error);
