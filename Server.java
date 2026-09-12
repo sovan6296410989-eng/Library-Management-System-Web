@@ -53,6 +53,7 @@ public class Server {
     public static void main(String[] args) throws Exception {
         initializeUsersTable();
         bootstrapAdmin();
+        seedInitialData();
 
         int port = Integer.parseInt(System.getenv().getOrDefault("BACKEND_PORT",
                 System.getenv().getOrDefault("PORT", String.valueOf(DEFAULT_PORT))));
@@ -475,6 +476,127 @@ public class Server {
                 ps.executeUpdate();
             }
             System.out.println("Bootstrap administrator role granted to " + email);
+        }
+    }
+
+    private static void seedInitialData() {
+        try (Connection con = dbconnection.getConnection();
+             Statement stmt = con.createStatement()) {
+
+            // 1. Seed Books if empty
+            try (ResultSet rs = stmt.executeQuery("SELECT COUNT(*) FROM books")) {
+                if (rs.next() && rs.getInt(1) == 0) {
+                    LOGGER.info("Seeding initial book catalogue...");
+                    String[][] books = {
+                        {"101", "english learning", "john", "0"},
+                        {"102", "physics", "ankur da", "0"},
+                        {"103", "artificial intelligence", "rich & knight", "0"},
+                        {"104", "compiler design", "soumen", "1"},
+                        {"105", "mathematics", "rittick", "1"},
+                        {"106", "ai agent", "suman", "1"},
+                        {"107", "V.A lagrasamy", "soumik", "1"},
+                        {"1037", "Beyond the Iron Gate", "Daniel Okafor", "1"},
+                        {"1583", "A Garden of Broken Stars", "Thomas Pellerin", "1"},
+                        {"1948", "The Glassblower's Apprentice", "Marcus Lindqvist", "1"},
+                        {"2610", "The Forgotten Lighthouse", "Caleb Whitmore", "1"},
+                        {"2740", "The Last Cartographer", "Owen Brightwater", "1"},
+                        {"3204", "Wolves of the Northern Pass", "Elena Vasquez", "1"},
+                        {"3725", "The Bone Orchard", "Nathaniel Grey", "1"},
+                        {"3958", "The Clockmaker's Daughter", "Henry Vance", "1"},
+                        {"4456", "Songs for the Drowned City", "Kwame Asante", "1"},
+                        {"4821", "The Silent Orchard", "Maria Kensington", "1"},
+                        {"5061", "Harvest of Quiet Fields", "Nadia Petrov", "1"},
+                        {"6047", "Letters to a Vanishing Coast", "Aiko Sato", "1"},
+                        {"6102", "Shadows Over Calder Bay", "Priya Natarajan", "1"},
+                        {"6729", "The Paper Lantern", "Yuki Tanaka", "1"},
+                        {"7264", "Whispers in Amber", "Lucia Ferreira", "1"},
+                        {"7332", "Ashes Along the Delta", "Fatima Al-Rashid", "1"},
+                        {"8391", "Echoes of the Salt Road", "Amara Chen", "1"},
+                        {"8875", "The Cartwright Letters", "Simon Ashworth", "1"},
+                        {"9017", "The Midnight Ferry", "Isabel Novak", "1"},
+                        {"9483", "Rivers That Remember", "Sofia Moretti", "1"}
+                    };
+                    try (PreparedStatement ps = con.prepareStatement(
+                            "INSERT INTO books (book_id, title, author, available) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE title=VALUES(title)")) {
+                        for (String[] b : books) {
+                            ps.setInt(1, Integer.parseInt(b[0]));
+                            ps.setString(2, b[1]);
+                            ps.setString(3, b[2]);
+                            ps.setBoolean(4, "1".equals(b[3]));
+                            ps.addBatch();
+                        }
+                        ps.executeBatch();
+                    }
+                    LOGGER.info("Successfully seeded 27 books into catalogue.");
+                }
+            }
+
+            // 2. Seed Members if empty
+            try (ResultSet rs = stmt.executeQuery("SELECT COUNT(*) FROM members")) {
+                if (rs.next() && rs.getInt(1) == 0) {
+                    LOGGER.info("Seeding initial members...");
+                    try (PreparedStatement ps = con.prepareStatement(
+                            "INSERT INTO members (member_id, name) VALUES (?, ?) ON DUPLICATE KEY UPDATE name=VALUES(name)")) {
+                        ps.setInt(1, 1); ps.setString(2, "rittick mallick"); ps.addBatch();
+                        ps.setInt(1, 2); ps.setString(2, "soumik khan"); ps.addBatch();
+                        ps.setInt(1, 3); ps.setString(2, "rittick"); ps.addBatch();
+                        ps.executeBatch();
+                    }
+                    LOGGER.info("Successfully seeded 3 members.");
+                }
+            }
+
+            // 3. Seed Users if not present
+            try (PreparedStatement ps = con.prepareStatement(
+                    "INSERT IGNORE INTO users (id, name, email, password_hash, role) VALUES (?, ?, ?, ?, ?)")) {
+                ps.setInt(1, 2);
+                ps.setString(2, "sovan");
+                ps.setString(3, "sovanghosh@gmail.com");
+                ps.setString(4, "120000$uroQFkzNRrCs9mywMRFfPg==$8n8l7yqjS+RTEm3gvOxXJ+mdxdwd3ESuBsrrtSWbi0A=");
+                ps.setString(5, "USER");
+                ps.addBatch();
+
+                ps.setInt(1, 6);
+                ps.setString(2, "Sovan Ghosh");
+                ps.setString(3, "sovanghosh0320@gmail.com");
+                ps.setString(4, "120000$pavh69+5+U37mdkt3mhCKw==$IMT/a+YCQ2jGfiyP2Vo89/C1laDlyFCeqxFfpIUWqMs=");
+                ps.setString(5, "USER");
+                ps.addBatch();
+
+                ps.setInt(1, 7);
+                ps.setString(2, "sov");
+                ps.setString(3, "sovan@gmail.com");
+                ps.setString(4, "120000$jrXyGs6VQN6cCd5eIk15gg==$3uq/CQul6Ri6UTUHf7ngoLRc+aRC+zNDvBJWk/r1Hew=");
+                ps.setString(5, "USER");
+                ps.addBatch();
+
+                ps.setInt(1, 8);
+                ps.setString(2, "Test User");
+                ps.setString(3, "test@example.com");
+                ps.setString(4, "120000$EbTgg/6sR09UduwbwopAMA==$V14GJfsR9LSyKK/r/bSp7krpA9+ogEA08CPp76MsGdc=");
+                ps.setString(5, "USER");
+                ps.addBatch();
+
+                ps.executeBatch();
+            }
+
+            // 4. Seed Issue Requests if empty
+            try (ResultSet rs = stmt.executeQuery("SELECT COUNT(*) FROM issue_requests")) {
+                if (rs.next() && rs.getInt(1) == 0) {
+                    try (PreparedStatement ps = con.prepareStatement(
+                            "INSERT INTO issue_requests (request_id, user_id, book_id, status) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE status=VALUES(status)")) {
+                        ps.setInt(1, 1); ps.setInt(2, 2); ps.setInt(3, 102); ps.setString(4, "APPROVED"); ps.addBatch();
+                        ps.setInt(1, 2); ps.setInt(2, 2); ps.setInt(3, 103); ps.setString(4, "APPROVED"); ps.addBatch();
+                        ps.setInt(1, 3); ps.setInt(2, 2); ps.setInt(3, 101); ps.setString(4, "APPROVED"); ps.addBatch();
+                        ps.setInt(1, 4); ps.setInt(2, 2); ps.setInt(3, 102); ps.setString(4, "APPROVED"); ps.addBatch();
+                        ps.setInt(1, 5); ps.setInt(2, 8); ps.setInt(3, 103); ps.setString(4, "APPROVED"); ps.addBatch();
+                        ps.executeBatch();
+                    }
+                }
+            }
+
+        } catch (Exception e) {
+            LOGGER.log(Level.WARNING, "Initial data seeding notice: " + e.getMessage());
         }
     }
 
