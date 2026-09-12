@@ -1,0 +1,10 @@
+node_modules
+*.class
+.git
+.github
+.vscode
+.env
+.env.production
+.dist
+target
+*.log

@@ -1,0 +1,53 @@
+version: "3.9"
+
+services:
+  db:
+    image: mysql:8.0
+    container_name: library-db
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: library_db
+      MYSQL_ROOT_PASSWORD: 721127
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p721127"]
+      interval: 4s
+      timeout: 4s
+      retries: 15
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend.Dockerfile
+    container_name: library-backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PORT: 8080
+      LIBRARY_DB_URL: jdbc:mysql://db:3306/library_db
+      LIBRARY_DB_USER: root
+      LIBRARY_DB_PASSWORD: 721127
+    ports:
+      - "8080:8080"
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend.Dockerfile
+    container_name: library-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      PORT: 3000
+      BACKEND_URL: http://backend:8080
+    ports:
+      - "3000:3000"
+
+volumes:
+  mysql_data:
