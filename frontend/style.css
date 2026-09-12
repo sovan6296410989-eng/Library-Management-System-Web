@@ -1745,3 +1745,54 @@ tbody tr:last-child td {
     }
 
 }
+
+@media (max-width: 850px) {
+    .auth-body {
+        padding: 12px;
+        align-items: flex-start;
+    }
+
+    .auth-wrapper {
+        grid-template-columns: 1fr;
+        min-height: auto;
+        border-radius: 16px;
+        margin: 15px auto;
+        max-width: 480px;
+    }
+
+    .auth-brand {
+        padding: 30px 20px;
+        text-align: center;
+        align-items: center;
+    }
+
+    .brand-icon {
+        width: 60px;
+        height: 60px;
+        font-size: 30px;
+        margin-bottom: 15px;
+    }
+
+    .auth-brand h1 {
+        font-size: 24px;
+        margin-bottom: 8px;
+    }
+
+    .auth-brand > p {
+        font-size: 13px;
+        line-height: 1.5;
+        text-align: center;
+    }
+
+    .brand-features {
+        display: none;
+    }
+
+    .auth-card {
+        padding: 30px 20px;
+    }
+
+    .auth-header h2 {
+        font-size: 22px;
+    }
+}
