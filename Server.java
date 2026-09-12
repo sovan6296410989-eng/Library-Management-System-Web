@@ -459,7 +459,20 @@ public class Server {
                     + "book_id INT NOT NULL PRIMARY KEY,"
                     + "title VARCHAR(255) NOT NULL,"
                     + "author VARCHAR(255) NOT NULL,"
-                    + "available BOOLEAN NOT NULL DEFAULT TRUE)");
+                    + "available BOOLEAN NOT NULL DEFAULT TRUE,"
+                    + "total_copies INT NOT NULL DEFAULT 10,"
+                    + "available_copies INT NOT NULL DEFAULT 10)");
+            try {
+                statement.executeUpdate("ALTER TABLE books ADD COLUMN total_copies INT NOT NULL DEFAULT 10");
+            } catch (SQLException ignored) {}
+            try {
+                statement.executeUpdate("ALTER TABLE books ADD COLUMN available_copies INT NOT NULL DEFAULT 10");
+            } catch (SQLException ignored) {}
+            try {
+                statement.executeUpdate("UPDATE books SET total_copies = 10 WHERE total_copies IS NULL OR total_copies <= 0");
+                statement.executeUpdate("UPDATE books SET available_copies = 10 WHERE available_copies IS NULL");
+                statement.executeUpdate("UPDATE books SET available = (available_copies > 0)");
+            } catch (SQLException ignored) {}
             statement.executeUpdate("CREATE TABLE IF NOT EXISTS members ("
                     + "member_id INT NOT NULL PRIMARY KEY,"
                     + "name VARCHAR(120) NOT NULL)");
@@ -672,7 +685,7 @@ public class Server {
     private static void getBooks(HttpExchange exchange) throws Exception {
         try (Connection con = dbconnection.getConnection();
              PreparedStatement ps = con.prepareStatement(
-                     "SELECT book_id, title, author, available FROM books ORDER BY book_id");
+                     "SELECT book_id, title, author, available, total_copies, available_copies FROM books ORDER BY book_id");
              ResultSet rs = ps.executeQuery()) {
             StringBuilder json = new StringBuilder("[");
             while (rs.next()) {
@@ -680,7 +693,9 @@ public class Server {
                 json.append("{\"bookId\":").append(rs.getInt("book_id"))
                         .append(",\"title\":\"").append(escapeJson(rs.getString("title")))
                         .append("\",\"author\":\"").append(escapeJson(rs.getString("author")))
-                        .append("\",\"available\":").append(rs.getBoolean("available")).append('}');
+                        .append("\",\"available\":").append(rs.getBoolean("available"))
+                        .append(",\"totalCopies\":").append(rs.getInt("total_copies"))
+                        .append(",\"availableCopies\":").append(rs.getInt("available_copies")).append('}');
             }
             sendResponse(exchange, 200, json.append(']').toString());
         }
@@ -694,15 +709,24 @@ public class Server {
             sendError(exchange, 400, "Book title and author are required");
             return;
         }
+        String requestedCopies = getJsonValue(body, "copies");
+        if (requestedCopies == null || requestedCopies.trim().isEmpty()) {
+            requestedCopies = getJsonValue(body, "totalCopies");
+        }
+        int copies = requestedCopies == null || requestedCopies.trim().isEmpty()
+                ? 10 : positiveInt(requestedCopies, "Number of copies");
+
         String requestedId = getJsonValue(body, "bookId");
         try (Connection con = dbconnection.getConnection()) {
             int bookId = requestedId == null || requestedId.trim().isEmpty()
                     ? getNextBookId(con) : positiveInt(requestedId, "Book ID");
             try (PreparedStatement ps = con.prepareStatement(
-                    "INSERT INTO books (book_id, title, author, available) VALUES (?, ?, ?, TRUE)")) {
+                    "INSERT INTO books (book_id, title, author, available, total_copies, available_copies) VALUES (?, ?, ?, TRUE, ?, ?)")) {
                 ps.setInt(1, bookId);
                 ps.setString(2, title);
                 ps.setString(3, author);
+                ps.setInt(4, copies);
+                ps.setInt(5, copies);
                 ps.executeUpdate();
             } catch (SQLException e) {
                 if (e.getErrorCode() == 1062) {
@@ -711,7 +735,8 @@ public class Server {
                 }
                 throw e;
             }
-            sendResponse(exchange, 201, "{\"message\":\"Book added successfully\",\"bookId\":" + bookId + "}");
+            sendResponse(exchange, 201, "{\"message\":\"Book added successfully\",\"bookId\":" + bookId
+                    + ",\"totalCopies\":" + copies + ",\"availableCopies\":" + copies + "}");
         }
     }
 
@@ -753,13 +778,13 @@ public class Server {
 
     private static void createIssueRequest(HttpExchange exchange, User user, int bookId) throws Exception {
         try (Connection con = dbconnection.getConnection();
-             PreparedStatement book = con.prepareStatement("SELECT available FROM books WHERE book_id = ?");
+             PreparedStatement book = con.prepareStatement("SELECT available_copies FROM books WHERE book_id = ?");
              PreparedStatement pending = con.prepareStatement(
                      "SELECT request_id FROM issue_requests WHERE user_id = ? AND book_id = ? AND status = 'PENDING'")) {
             book.setInt(1, bookId);
             try (ResultSet rs = book.executeQuery()) {
                 if (!rs.next()) { sendError(exchange, 404, "Book not found"); return; }
-                if (!rs.getBoolean("available")) { sendError(exchange, 400, "Book is already issued"); return; }
+                if (rs.getInt("available_copies") <= 0) { sendError(exchange, 400, "No copies of this book are available"); return; }
             }
             pending.setInt(1, user.id);
             pending.setInt(2, bookId);
@@ -816,11 +841,13 @@ public class Server {
                     int bookId = rs.getInt("book_id");
                     if (approve) {
                         try (PreparedStatement updateBook = con.prepareStatement(
-                                "UPDATE books SET available = FALSE WHERE book_id = ? AND available = TRUE")) {
+                                "UPDATE books SET available_copies = available_copies - 1, "
+                                + "available = (available_copies - 1 > 0) "
+                                + "WHERE book_id = ? AND available_copies > 0")) {
                             updateBook.setInt(1, bookId);
                             if (updateBook.executeUpdate() == 0) {
                                 con.rollback();
-                                sendError(exchange, 409, "Book is no longer available");
+                                sendError(exchange, 409, "No copies of this book are available");
                                 return;
                             }
                         }
@@ -846,13 +873,16 @@ public class Server {
 
     private static void createReturnRequest(HttpExchange exchange, User user, int bookId) throws Exception {
         try (Connection con = dbconnection.getConnection();
-             PreparedStatement book = con.prepareStatement("SELECT available FROM books WHERE book_id = ?");
+             PreparedStatement book = con.prepareStatement("SELECT available_copies, total_copies FROM books WHERE book_id = ?");
              PreparedStatement pending = con.prepareStatement(
                      "SELECT request_id FROM return_requests WHERE user_id = ? AND book_id = ? AND status = 'PENDING'")) {
             book.setInt(1, bookId);
             try (ResultSet rs = book.executeQuery()) {
                 if (!rs.next()) { sendError(exchange, 404, "Book not found"); return; }
-                if (rs.getBoolean("available")) { sendError(exchange, 400, "Book is not currently issued"); return; }
+                if (rs.getInt("available_copies") >= rs.getInt("total_copies")) {
+                    sendError(exchange, 400, "All copies of this book are already in the library");
+                    return;
+                }
             }
             pending.setInt(1, user.id);
             pending.setInt(2, bookId);
@@ -909,11 +939,12 @@ public class Server {
                     int bookId = rs.getInt("book_id");
                     if (approve) {
                         try (PreparedStatement updateBook = con.prepareStatement(
-                                "UPDATE books SET available = TRUE WHERE book_id = ? AND available = FALSE")) {
+                                "UPDATE books SET available_copies = available_copies + 1, available = TRUE "
+                                + "WHERE book_id = ? AND available_copies < total_copies")) {
                             updateBook.setInt(1, bookId);
                             if (updateBook.executeUpdate() == 0) {
                                 con.rollback();
-                                sendError(exchange, 409, "Book is already marked as available");
+                                sendError(exchange, 409, "All copies of this book are already in the library");
                                 return;
                             }
                         }
@@ -1091,27 +1122,50 @@ public class Server {
         }
     }
 
-    private static void changeBookAvailability(HttpExchange exchange, int bookId, boolean available,
+    private static void changeBookAvailability(HttpExchange exchange, int bookId, boolean returning,
                                                String action, String conflict) throws Exception {
-        try (Connection con = dbconnection.getConnection();
-             PreparedStatement update = con.prepareStatement(
-                     "UPDATE books SET available = ? WHERE book_id = ? AND available = ?")) {
-            update.setBoolean(1, available);
-            update.setInt(2, bookId);
-            update.setBoolean(3, !available);
-            if (update.executeUpdate() == 0) {
-                try (PreparedStatement check = con.prepareStatement(
-                        "SELECT available FROM books WHERE book_id = ?")) {
-                    check.setInt(1, bookId);
-                    try (ResultSet rs = check.executeQuery()) {
-                        if (!rs.next()) {
-                            sendError(exchange, 404, "Book not found");
-                        } else {
-                            sendError(exchange, 400, "Book is " + conflict);
+        try (Connection con = dbconnection.getConnection()) {
+            if (returning) {
+                try (PreparedStatement update = con.prepareStatement(
+                        "UPDATE books SET available_copies = available_copies + 1, available = TRUE "
+                        + "WHERE book_id = ? AND available_copies < total_copies")) {
+                    update.setInt(1, bookId);
+                    if (update.executeUpdate() == 0) {
+                        try (PreparedStatement check = con.prepareStatement(
+                                "SELECT available_copies, total_copies FROM books WHERE book_id = ?")) {
+                            check.setInt(1, bookId);
+                            try (ResultSet rs = check.executeQuery()) {
+                                if (!rs.next()) {
+                                    sendError(exchange, 404, "Book not found");
+                                } else {
+                                    sendError(exchange, 400, "All copies of this book are already returned");
+                                }
+                            }
                         }
+                        return;
                     }
                 }
-                return;
+            } else {
+                try (PreparedStatement update = con.prepareStatement(
+                        "UPDATE books SET available_copies = available_copies - 1, "
+                        + "available = (available_copies - 1 > 0) "
+                        + "WHERE book_id = ? AND available_copies > 0")) {
+                    update.setInt(1, bookId);
+                    if (update.executeUpdate() == 0) {
+                        try (PreparedStatement check = con.prepareStatement(
+                                "SELECT available_copies FROM books WHERE book_id = ?")) {
+                            check.setInt(1, bookId);
+                            try (ResultSet rs = check.executeQuery()) {
+                                if (!rs.next()) {
+                                    sendError(exchange, 404, "Book not found");
+                                } else {
+                                    sendError(exchange, 400, "No copies available to issue");
+                                }
+                            }
+                        }
+                        return;
+                    }
+                }
             }
             sendResponse(exchange, 200, "{\"message\":\"Book " + action + " successfully\"}");
         }

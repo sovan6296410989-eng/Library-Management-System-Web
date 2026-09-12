@@ -9,7 +9,9 @@ CREATE TABLE IF NOT EXISTS `books` (
   `book_id` INT NOT NULL PRIMARY KEY,
   `title` VARCHAR(255) NOT NULL,
   `author` VARCHAR(255) NOT NULL,
-  `available` BOOLEAN NOT NULL DEFAULT TRUE
+  `available` BOOLEAN NOT NULL DEFAULT TRUE,
+  `total_copies` INT NOT NULL DEFAULT 10,
+  `available_copies` INT NOT NULL DEFAULT 10
 );
 
 -- 2. Table structure for members
@@ -58,35 +60,35 @@ CREATE TABLE IF NOT EXISTS `member_requests` (
 );
 
 -- Data for books
-INSERT INTO `books` (`book_id`, `title`, `author`, `available`) VALUES
-(101, 'english learning', 'john', 0),
-(102, 'physics', 'ankur da', 0),
-(103, 'artificial intelligence', 'rich & knight', 0),
-(104, 'compiler design', 'soumen', 1),
-(105, 'mathematics', 'rittick', 1),
-(106, 'ai agent', 'suman', 1),
-(107, 'V.A lagrasamy', 'soumik', 1),
-(1037, 'Beyond the Iron Gate', 'Daniel Okafor', 1),
-(1583, 'A Garden of Broken Stars', 'Thomas Pellerin', 1),
-(1948, 'The Glassblower\'s Apprentice', 'Marcus Lindqvist', 1),
-(2610, 'The Forgotten Lighthouse', 'Caleb Whitmore', 1),
-(2740, 'The Last Cartographer', 'Owen Brightwater', 1),
-(3204, 'Wolves of the Northern Pass', 'Elena Vasquez', 1),
-(3725, 'The Bone Orchard', 'Nathaniel Grey', 1),
-(3958, 'The Clockmaker\'s Daughter', 'Henry Vance', 1),
-(4456, 'Songs for the Drowned City', 'Kwame Asante', 1),
-(4821, 'The Silent Orchard', 'Maria Kensington', 1),
-(5061, 'Harvest of Quiet Fields', 'Nadia Petrov', 1),
-(6047, 'Letters to a Vanishing Coast', 'Aiko Sato', 1),
-(6102, 'Shadows Over Calder Bay', 'Priya Natarajan', 1),
-(6729, 'The Paper Lantern', 'Yuki Tanaka', 1),
-(7264, 'Whispers in Amber', 'Lucia Ferreira', 1),
-(7332, 'Ashes Along the Delta', 'Fatima Al-Rashid', 1),
-(8391, 'Echoes of the Salt Road', 'Amara Chen', 1),
-(8875, 'The Cartwright Letters', 'Simon Ashworth', 1),
-(9017, 'The Midnight Ferry', 'Isabel Novak', 1),
-(9483, 'Rivers That Remember', 'Sofia Moretti', 1)
-ON DUPLICATE KEY UPDATE `title`=VALUES(`title`), `author`=VALUES(`author`), `available`=VALUES(`available`);
+INSERT INTO `books` (`book_id`, `title`, `author`, `available`, `total_copies`, `available_copies`) VALUES
+(101, 'english learning', 'john', 1, 10, 10),
+(102, 'physics', 'ankur da', 1, 10, 10),
+(103, 'artificial intelligence', 'rich & knight', 1, 10, 10),
+(104, 'compiler design', 'soumen', 1, 10, 10),
+(105, 'mathematics', 'rittick', 1, 10, 10),
+(106, 'ai agent', 'suman', 1, 10, 10),
+(107, 'V.A lagrasamy', 'soumik', 1, 10, 10),
+(1037, 'Beyond the Iron Gate', 'Daniel Okafor', 1, 10, 10),
+(1583, 'A Garden of Broken Stars', 'Thomas Pellerin', 1, 10, 10),
+(1948, 'The Glassblower\'s Apprentice', 'Marcus Lindqvist', 1, 10, 10),
+(2610, 'The Forgotten Lighthouse', 'Caleb Whitmore', 1, 10, 10),
+(2740, 'The Last Cartographer', 'Owen Brightwater', 1, 10, 10),
+(3204, 'Wolves of the Northern Pass', 'Elena Vasquez', 1, 10, 10),
+(3725, 'The Bone Orchard', 'Nathaniel Grey', 1, 10, 10),
+(3958, 'The Clockmaker\'s Daughter', 'Henry Vance', 1, 10, 10),
+(4456, 'Songs for the Drowned City', 'Kwame Asante', 1, 10, 10),
+(4821, 'The Silent Orchard', 'Maria Kensington', 1, 10, 10),
+(5061, 'Harvest of Quiet Fields', 'Nadia Petrov', 1, 10, 10),
+(6047, 'Letters to a Vanishing Coast', 'Aiko Sato', 1, 10, 10),
+(6102, 'Shadows Over Calder Bay', 'Priya Natarajan', 1, 10, 10),
+(6729, 'The Paper Lantern', 'Yuki Tanaka', 1, 10, 10),
+(7264, 'Whispers in Amber', 'Lucia Ferreira', 1, 10, 10),
+(7332, 'Ashes Along the Delta', 'Fatima Al-Rashid', 1, 10, 10),
+(8391, 'Echoes of the Salt Road', 'Amara Chen', 1, 10, 10),
+(8875, 'The Cartwright Letters', 'Simon Ashworth', 1, 10, 10),
+(9017, 'The Midnight Ferry', 'Isabel Novak', 1, 10, 10),
+(9483, 'Rivers That Remember', 'Sofia Moretti', 1, 10, 10)
+ON DUPLICATE KEY UPDATE `title`=VALUES(`title`), `author`=VALUES(`author`), `available`=VALUES(`available`), `total_copies`=VALUES(`total_copies`), `available_copies`=VALUES(`available_copies`);
 
 -- Data for members
 INSERT INTO `members` (`member_id`, `name`) VALUES

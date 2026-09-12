@@ -309,31 +309,48 @@ function renderBooks(books) {
     const userTable = document.getElementById("userBookTableBody");
     const overview = document.getElementById("dashboardBookTableBody");
     const admin = localStorage.getItem("userRole") === "ADMIN";
-    const rows = books.map(book => `
+    const rows = books.map(book => {
+        const total = (book.totalCopies !== undefined && book.totalCopies !== null) ? book.totalCopies : 10;
+        const avail = (book.availableCopies !== undefined && book.availableCopies !== null) ? book.availableCopies : (book.available ? total : 0);
+        const hasCopies = avail > 0;
+        const canReturn = avail < total;
+
+        return `
         <tr data-book="${book.bookId} ${escapeHtml(book.title)} ${escapeHtml(book.author)}">
             <td>${book.bookId}</td>
             <td>${escapeHtml(book.title)}</td>
             <td>${escapeHtml(book.author)}</td>
-            <td><span class="${book.available ? "status-available" : "status-issued"}">${book.available ? "Available" : "Issued"}</span></td>
+            <td><strong style="color: ${hasCopies ? '#16a34a' : '#dc2626'}; font-size: 14px;">${avail}</strong> <span style="color: #64748b; font-size: 12px;">/ ${total}</span></td>
+            <td><span class="${hasCopies ? "status-available" : "status-issued"}">${hasCopies ? `${avail} in Stock` : "Out of Stock"}</span></td>
             ${admin
-            ? `<td>${book.available
-                ? `<button class="success-btn table-btn" onclick="issueBook(${book.bookId})">Issue</button>`
-                : `<button class="primary-btn table-btn" onclick="returnBook(${book.bookId})">Return</button>`}
-                    <button class="danger-btn table-btn" onclick="deleteBook(${book.bookId})">Delete</button></td>`
-            : `<td>${book.available
-                ? `<button class="success-btn table-btn" onclick="issueBook(${book.bookId})">Issue Book</button>`
-                : `<button class="primary-btn table-btn" onclick="returnBook(${book.bookId})">Return Book</button>`}</td>`}
-        </tr>
-    `).join("");
+            ? `<td>
+                ${hasCopies ? `<button class="success-btn table-btn" onclick="issueBook(${book.bookId})">Issue</button>` : `<button class="secondary-btn table-btn" disabled style="opacity: 0.5; cursor: not-allowed;">No Copies</button>`}
+                ${canReturn ? `<button class="primary-btn table-btn" onclick="returnBook(${book.bookId})">Return</button>` : ''}
+                <button class="danger-btn table-btn" onclick="deleteBook(${book.bookId})">Delete</button>
+               </td>`
+            : `<td>
+                ${hasCopies ? `<button class="success-btn table-btn" onclick="issueBook(${book.bookId})">Issue Book</button>` : `<button class="secondary-btn table-btn" disabled style="opacity: 0.5; cursor: not-allowed;">Out of Stock</button>`}
+                ${canReturn ? `<button class="primary-btn table-btn" onclick="returnBook(${book.bookId})">Return Book</button>` : ''}
+               </td>`}
+        </tr>`;
+    }).join("");
 
-    if (table) table.innerHTML = rows || '<tr><td colspan="5">No books found.</td></tr>';
-    if (userTable) userTable.innerHTML = rows || '<tr><td colspan="5">No books found.</td></tr>';
+    if (table) table.innerHTML = rows || '<tr><td colspan="6">No books found.</td></tr>';
+    if (userTable) userTable.innerHTML = rows || '<tr><td colspan="6">No books found.</td></tr>';
     if (overview) {
-        overview.innerHTML = books.length ? books.slice(0, 5).map(book => `
-            <tr><td>${book.bookId}</td><td>${escapeHtml(book.title)}</td>
-            <td>${escapeHtml(book.author)}</td><td><span class="${book.available ? "status-available" : "status-issued"}">
-            ${book.available ? "Available" : "Issued"}</span></td></tr>`).join("")
-            : '<tr><td colspan="4">No books found.</td></tr>';
+        overview.innerHTML = books.length ? books.slice(0, 5).map(book => {
+            const total = (book.totalCopies !== undefined && book.totalCopies !== null) ? book.totalCopies : 10;
+            const avail = (book.availableCopies !== undefined && book.availableCopies !== null) ? book.availableCopies : (book.available ? total : 0);
+            return `
+            <tr>
+                <td>${book.bookId}</td>
+                <td>${escapeHtml(book.title)}</td>
+                <td>${escapeHtml(book.author)}</td>
+                <td><strong style="color: ${avail > 0 ? '#16a34a' : '#dc2626'}">${avail}</strong> / ${total}</td>
+                <td><span class="${avail > 0 ? "status-available" : "status-issued"}">${avail > 0 ? "In Stock" : "Out of Stock"}</span></td>
+            </tr>`;
+        }).join("")
+            : '<tr><td colspan="5">No books found.</td></tr>';
     }
 }
 
@@ -353,10 +370,14 @@ async function loadLibraryData() {
     try {
         const books = await apiRequest("/books");
         renderBooks(books);
+        const totalCopiesSum = books.reduce((sum, b) => sum + ((b.totalCopies !== undefined && b.totalCopies !== null) ? b.totalCopies : 10), 0);
+        const availableCopiesSum = books.reduce((sum, b) => sum + ((b.availableCopies !== undefined && b.availableCopies !== null) ? b.availableCopies : (b.available ? 10 : 0)), 0);
+        const issuedCopiesSum = Math.max(0, totalCopiesSum - availableCopiesSum);
+
         const values = {
             totalBooks: books.length,
-            availableBooks: books.filter(book => book.available).length,
-            issuedBooks: books.filter(book => !book.available).length
+            availableBooks: availableCopiesSum,
+            issuedBooks: issuedCopiesSum
         };
         Object.keys(values).forEach(id => {
             const element = document.getElementById(id);
@@ -365,7 +386,7 @@ async function loadLibraryData() {
     } catch (error) {
         console.error("Unable to load books:", error);
         const table = document.getElementById("userBookTableBody") || document.getElementById("bookTableBody");
-        if (table) table.innerHTML = `<tr><td colspan="5">${escapeHtml(error.message)}</td></tr>`;
+        if (table) table.innerHTML = `<tr><td colspan="6">${escapeHtml(error.message)}</td></tr>`;
     }
     if (document.getElementById("memberTableBody")) {
         await loadMembers();
@@ -494,15 +515,22 @@ async function addBook() {
     const bookId = document.getElementById("bookId").value.trim();
     const title = document.getElementById("bookTitle").value.trim();
     const author = document.getElementById("bookAuthor").value.trim();
+    const copiesInput = document.getElementById("bookCopies");
+    const copies = copiesInput ? copiesInput.value.trim() : "";
+
     if (bookId && !/^[1-9]\d*$/.test(bookId)) return alert("Book ID must be a positive whole number.");
     if (!title || !author) return alert("Book title and author are required.");
+    if (copies && !/^[1-9]\d*$/.test(copies)) return alert("Number of copies must be a positive whole number.");
+
     try {
         const book = { title, author };
         if (bookId) book.bookId = Number(bookId);
+        book.copies = copies ? Number(copies) : 10;
         await apiRequest("/books", { method: "POST", body: JSON.stringify(book) });
         document.getElementById("bookId").value = "";
         document.getElementById("bookTitle").value = "";
         document.getElementById("bookAuthor").value = "";
+        if (copiesInput) copiesInput.value = "10";
         closeBookModal();
         await loadLibraryData();
     } catch (error) { showApiError(error); }

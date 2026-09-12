@@ -366,23 +366,11 @@
                     <thead>
 
                         <tr>
-
-                            <th>
-                                Book ID
-                            </th>
-
-                            <th>
-                                Title
-                            </th>
-
-                            <th>
-                                Author
-                            </th>
-
-                            <th>
-                                Status
-                            </th>
-
+                            <th>Book ID</th>
+                            <th>Title</th>
+                            <th>Author</th>
+                            <th>Copies Available</th>
+                            <th>Status</th>
                         </tr>
 
                     </thead>
@@ -450,27 +438,12 @@
                     <thead>
 
                         <tr>
-
-                            <th>
-                                Book ID
-                            </th>
-
-                            <th>
-                                Title
-                            </th>
-
-                            <th>
-                                Author
-                            </th>
-
-                            <th>
-                                Status
-                            </th>
-
-                            <th>
-                                Action
-                            </th>
-
+                            <th>Book ID</th>
+                            <th>Title</th>
+                            <th>Author</th>
+                            <th>Copies Available</th>
+                            <th>Status</th>
+                            <th>Action</th>
                         </tr>
 
                     </thead>
@@ -660,6 +633,20 @@
             type="text"
             id="bookAuthor"
             placeholder="Enter author name">
+
+
+        <label>
+            Number of Copies <span class="optional-label">(default 10)</span>
+        </label>
+
+
+        <input
+            type="number"
+            id="bookCopies"
+            min="1"
+            step="1"
+            placeholder="Enter total copies (e.g. 10)"
+            value="10">
 
 
         <button
