@@ -230,8 +230,21 @@ public class Server {
                 return;
             }
             if (path.matches("/api/books/[0-9]+/return") && "PUT".equalsIgnoreCase(method)) {
-                if (requireUser(exchange) != null) {
-                    returnBook(exchange, getIdFromPath(path));
+                User user = requireUser(exchange);
+                if (user != null) {
+                    if ("ADMIN".equals(user.role)) returnBook(exchange, getIdFromPath(path));
+                    else createReturnRequest(exchange, user, getIdFromPath(path));
+                }
+                return;
+            }
+            if ("/api/return-requests".equals(path) && "GET".equalsIgnoreCase(method)) {
+                if (requireAdmin(exchange) != null) getReturnRequests(exchange);
+                return;
+            }
+            if (path.matches("/api/return-requests/[0-9]+/(approve|reject)")
+                    && "PUT".equalsIgnoreCase(method)) {
+                if (requireAdmin(exchange) != null) {
+                    processReturnRequest(exchange, getIdFromPath(path), path.endsWith("/approve"));
                 }
                 return;
             }
@@ -433,6 +446,12 @@ public class Server {
                     + "member_id INT NOT NULL PRIMARY KEY,"
                     + "name VARCHAR(120) NOT NULL)");
             statement.executeUpdate("CREATE TABLE IF NOT EXISTS issue_requests ("
+                    + "request_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,"
+                    + "user_id INT NOT NULL,"
+                    + "book_id INT NOT NULL,"
+                    + "status VARCHAR(10) NOT NULL DEFAULT 'PENDING',"
+                    + "created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP)");
+            statement.executeUpdate("CREATE TABLE IF NOT EXISTS return_requests ("
                     + "request_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,"
                     + "user_id INT NOT NULL,"
                     + "book_id INT NOT NULL,"
@@ -800,8 +819,108 @@ public class Server {
         }
     }
 
+    private static void createReturnRequest(HttpExchange exchange, User user, int bookId) throws Exception {
+        try (Connection con = dbconnection.getConnection();
+             PreparedStatement book = con.prepareStatement("SELECT available FROM books WHERE book_id = ?");
+             PreparedStatement pending = con.prepareStatement(
+                     "SELECT request_id FROM return_requests WHERE user_id = ? AND book_id = ? AND status = 'PENDING'")) {
+            book.setInt(1, bookId);
+            try (ResultSet rs = book.executeQuery()) {
+                if (!rs.next()) { sendError(exchange, 404, "Book not found"); return; }
+                if (rs.getBoolean("available")) { sendError(exchange, 400, "Book is not currently issued"); return; }
+            }
+            pending.setInt(1, user.id);
+            pending.setInt(2, bookId);
+            try (ResultSet rs = pending.executeQuery()) {
+                if (rs.next()) { sendError(exchange, 409, "A return request is already pending"); return; }
+            }
+        }
+        try (Connection con = dbconnection.getConnection();
+             PreparedStatement ps = con.prepareStatement(
+                     "INSERT INTO return_requests (user_id, book_id) VALUES (?, ?)",
+                     Statement.RETURN_GENERATED_KEYS)) {
+            ps.setInt(1, user.id);
+            ps.setInt(2, bookId);
+            ps.executeUpdate();
+            try (ResultSet keys = ps.getGeneratedKeys()) {
+                int requestId = keys.next() ? keys.getInt(1) : 0;
+                sendResponse(exchange, 202, "{\"message\":\"Return request sent to administrator\",\"requestId\":"
+                        + requestId + "}");
+            }
+        }
+    }
+
+    private static void getReturnRequests(HttpExchange exchange) throws Exception {
+        try (Connection con = dbconnection.getConnection();
+             PreparedStatement ps = con.prepareStatement(
+                     "SELECT r.request_id, r.book_id, b.title, u.name, u.email, r.status "
+                     + "FROM return_requests r JOIN users u ON u.id = r.user_id "
+                     + "JOIN books b ON b.book_id = r.book_id WHERE r.status = 'PENDING' "
+                     + "ORDER BY r.created_at");
+             ResultSet rs = ps.executeQuery()) {
+            StringBuilder json = new StringBuilder("[");
+            while (rs.next()) {
+                if (json.length() > 1) json.append(',');
+                json.append("{\"requestId\":").append(rs.getInt("request_id"))
+                        .append(",\"bookId\":").append(rs.getInt("book_id"))
+                        .append(",\"title\":\"").append(escapeJson(rs.getString("title")))
+                        .append("\",\"userName\":\"").append(escapeJson(rs.getString("name")))
+                        .append("\",\"email\":\"").append(escapeJson(rs.getString("email")))
+                        .append("\",\"status\":\"").append(rs.getString("status")).append("\"}");
+            }
+            sendResponse(exchange, 200, json.append(']').toString());
+        }
+    }
+
+    private static void processReturnRequest(HttpExchange exchange, int requestId, boolean approve)
+            throws Exception {
+        try (Connection con = dbconnection.getConnection()) {
+            con.setAutoCommit(false);
+            try (PreparedStatement find = con.prepareStatement(
+                    "SELECT book_id FROM return_requests WHERE request_id = ? AND status = 'PENDING'")) {
+                find.setInt(1, requestId);
+                try (ResultSet rs = find.executeQuery()) {
+                    if (!rs.next()) { sendError(exchange, 404, "Pending return request not found"); return; }
+                    int bookId = rs.getInt("book_id");
+                    if (approve) {
+                        try (PreparedStatement updateBook = con.prepareStatement(
+                                "UPDATE books SET available = TRUE WHERE book_id = ? AND available = FALSE")) {
+                            updateBook.setInt(1, bookId);
+                            if (updateBook.executeUpdate() == 0) {
+                                con.rollback();
+                                sendError(exchange, 409, "Book is already marked as available");
+                                return;
+                            }
+                        }
+                    }
+                    try (PreparedStatement update = con.prepareStatement(
+                            "UPDATE return_requests SET status = ? WHERE request_id = ?")) {
+                        update.setString(1, approve ? "APPROVED" : "REJECTED");
+                        update.setInt(2, requestId);
+                        update.executeUpdate();
+                    }
+                    con.commit();
+                    sendResponse(exchange, 200, "{\"message\":\"Return request "
+                            + (approve ? "approved\"}" : "rejected\"}"));
+                }
+            } catch (Exception e) {
+                con.rollback();
+                throw e;
+            } finally {
+                con.setAutoCommit(true);
+            }
+        }
+    }
+
     private static void returnBook(HttpExchange exchange, int bookId) throws Exception {
         changeBookAvailability(exchange, bookId, true, "returned", "not currently issued");
+        try (Connection con = dbconnection.getConnection();
+             PreparedStatement ps = con.prepareStatement(
+                     "UPDATE return_requests SET status = 'APPROVED' WHERE book_id = ? AND status = 'PENDING'")) {
+            ps.setInt(1, bookId);
+            ps.executeUpdate();
+        } catch (Exception ignored) {
+        }
     }
 
     private static void deleteBook(HttpExchange exchange, int bookId) throws Exception {

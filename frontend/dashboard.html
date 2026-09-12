@@ -47,6 +47,13 @@
             </li>
 
             <li>
+                <a href="#" class="nav-link" data-section="return-requests"
+                   onclick="showSection('return-requests'); return false;">
+                    🔄 Return Requests
+                </a>
+            </li>
+
+            <li>
 
                 <a href="#"
                    class="nav-link active"
@@ -547,6 +554,19 @@
                 <table>
                     <thead><tr><th>Request ID</th><th>Book</th><th>User</th><th>Email</th><th>Action</th></tr></thead>
                     <tbody id="issueRequestsTableBody"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <section id="return-requests" class="content-section">
+            <div class="section-page-header">
+                <div><h2>Return Requests</h2><p>Approve or reject user return requests.</p></div>
+                <button class="primary-btn" onclick="loadReturnRequests()">Refresh</button>
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead><tr><th>Request ID</th><th>Book</th><th>User</th><th>Email</th><th>Action</th></tr></thead>
+                    <tbody id="returnRequestsTableBody"></tbody>
                 </table>
             </div>
         </section>

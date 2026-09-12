@@ -398,6 +398,9 @@ function showSection(sectionId) {
     if (sectionId === "requests") {
         loadIssueRequests();
     }
+    if (sectionId === "return-requests") {
+        loadReturnRequests();
+    }
 }
 
 function openUserCatalogue() {
@@ -502,6 +505,38 @@ async function processIssueRequest(requestId, action) {
     }
 }
 
+async function loadReturnRequests() {
+    const table = document.getElementById("returnRequestsTableBody");
+    if (!table) return;
+    try {
+        const requests = await apiRequest("/return-requests");
+        table.innerHTML = requests.length
+            ? requests.map(request => `<tr>
+                <td>${request.requestId}</td>
+                <td>${request.bookId} - ${escapeHtml(request.title)}</td>
+                <td>${escapeHtml(request.userName)}</td>
+                <td>${escapeHtml(request.email)}</td>
+                <td>
+                    <button class="success-btn table-btn" onclick="processReturnRequest(${request.requestId}, 'approve')">Approve</button>
+                    <button class="danger-btn table-btn" onclick="processReturnRequest(${request.requestId}, 'reject')">Reject</button>
+                </td>
+            </tr>`).join("")
+            : '<tr><td colspan="5">No pending return requests.</td></tr>';
+    } catch (error) {
+        table.innerHTML = `<tr><td colspan="5">${escapeHtml(error.message)}</td></tr>`;
+    }
+}
+
+async function processReturnRequest(requestId, action) {
+    try {
+        await apiRequest(`/return-requests/${requestId}/${action}`, { method: "PUT" });
+        await loadReturnRequests();
+        await loadLibraryData();
+    } catch (error) {
+        showApiError(error);
+    }
+}
+
 async function issueBook(bookId) {
     let targetId = bookId;
     if (targetId === undefined) {
@@ -539,10 +574,15 @@ async function returnBook(bookId) {
         return alert("Please enter a valid Book ID.");
     }
     const idNum = Number(targetId);
-    if (!window.confirm(`Mark Book #${idNum} as returned?`)) return;
+    const isAdmin = localStorage.getItem("userRole") === "ADMIN";
+    const confirmMsg = isAdmin
+        ? `Mark Book #${idNum} as returned?`
+        : `Submit a request to return Book #${idNum}?`;
+    if (!window.confirm(confirmMsg)) return;
 
     try {
-        await updateBookStatus(idNum, "return");
+        const response = await apiRequest(`/books/${idNum}/return`, { method: "PUT" });
+        alert(response.message || "Request processed successfully.");
         const input = document.getElementById("returnBookId");
         if (input) input.value = "";
         await loadLibraryData();
