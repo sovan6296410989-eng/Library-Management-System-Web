@@ -1,18 +1,55 @@
 # 📚 Library Management System
 
-A full-stack Library Management System with Google OAuth 2.0 & Role-Based Access Control (Admin / User), real-time book availability tracking, and automated member borrowing requests.
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Railway%20Cloud-00C7B7?style=for-the-badge&logo=railway&logoColor=white)](https://web-production-e483c.up.railway.app)
+[![Backend](https://img.shields.io/badge/Backend-Java%2021-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white)](https://web-production-e483c.up.railway.app)
+[![Database](https://img.shields.io/badge/Database-MySQL-4479A1?style=for-the-badge&logo=mysql&logoColor=white)](https://web-production-e483c.up.railway.app)
+[![Frontend](https://img.shields.io/badge/Frontend-HTML5%2FCSS3%2FJS-E34F26?style=for-the-badge&logo=html5&logoColor=white)](https://web-production-e483c.up.railway.app)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)](LICENSE)
+
+A modern, full-stack Library Management System featuring Google OAuth 2.0 & Role-Based Access Control (Admin / User), stack copy inventory management (multiple copies per title), automated member approval, and borrowing/return request lifecycles.
 
 ---
 
-## 🌟 Features
+## 🌐 Live Web Application
 
-- **Google OAuth 2.0 & Email/Password Authentication**: Seamless Google Sign-In via Google Identity Services (GIS).
-- **Strict Role Separation**:
-  - **Administrator**: Add/delete books, register members, approve/reject borrowing requests.
-  - **User / Member**: Browse catalogue, view live availability, submit borrow requests, return books.
-- **Full-Stack Single-Port Capability**: Java backend serves both static assets and API routes directly on port `8080`, with an optional Node.js proxy server on port `3000`.
-- **Cloud-Ready Database Layer**: Supports standard MySQL and cloud connection strings (`DATABASE_URL`, `MYSQL_URL`, `LIBRARY_DB_URL`) with automatic connection retry logic.
-- **Production-Ready**: Configured for Docker, Docker Compose, Railway, and Render.
+The application is deployed and running live on Railway Cloud:
+
+* **🚀 Main Website / Portal**: **[https://web-production-e483c.up.railway.app](https://web-production-e483c.up.railway.app)**
+* **🔐 Login Page**: **[https://web-production-e483c.up.railway.app/login.html](https://web-production-e483c.up.railway.app/login.html)**
+* **🛠️ Admin Dashboard**: **[https://web-production-e483c.up.railway.app/dashboard.html](https://web-production-e483c.up.railway.app/dashboard.html)**
+* **👤 User / Student Dashboard**: **[https://web-production-e483c.up.railway.app/user-dashboard.html](https://web-production-e483c.up.railway.app/user-dashboard.html)**
+
+### 🔑 Demo Admin Credentials
+| Role | Email | Password |
+| :--- | :--- | :--- |
+| **Administrator** | `sovan6296410989@gmail.com` | `admin123` |
+
+*(Users can register new accounts anytime via email/password or one-click Google Sign-In).*
+
+---
+
+## 🌟 Key Features
+
+- **Google OAuth 2.0 & JWT Authentication**: Seamless Google Sign-In via Google Identity Services (GIS) and secure token-based sessions.
+- **Strict Role-Based Access Control (RBAC)**:
+  - **Administrator**: Add/delete books with custom stack copies, manage members, approve/reject borrowing requests, approve/reject return requests, and review membership applications.
+  - **User / Member**: Browse catalogue, view real-time copy availability badges, submit issue/borrow requests, submit return requests, and apply for library membership.
+- **📚 Multiple Stack Copies Inventory**:
+  - Full tracking of `total_copies` and `available_copies` per book title (default 10 copies).
+  - Real-time stock decrementing on borrowing and incrementing on returns.
+  - Automatic out-of-stock badges and lockouts when copies reach 0.
+- **🔄 Complete Issue & Return Workflow**:
+  - Users request to borrow or return books.
+  - Admins review and approve/reject requests with instant inventory updates.
+- **👥 Member Self-Registration & Approval**:
+  - Users can submit a membership request with their desired Member ID and Name.
+  - Admins review pending requests in the Admin Dashboard to approve or reject them.
+- **⚡ Full-Stack Single-Port Capability**:
+  - Pure Java backend (`Server.java`) serves both static assets and REST API routes directly on port `8080`.
+  - Node.js proxy (`server.js`) available on port `3000`.
+- **☁️ Cloud-Ready Database Layer**:
+  - Compatible with MySQL 8.0 & 9.4.
+  - Supports `DATABASE_URL`, `MYSQL_URL`, and `LIBRARY_DB_URL` with automatic table migrations and schema integrity checks.
 
 ---
 
@@ -50,42 +87,42 @@ The system will compile the Java backend and launch the servers:
 
 ## 🔑 Google OAuth 2.0 Configuration
 
-To enable Google Sign-In locally:
+To enable Google Sign-In:
 1. Go to [Google Cloud Console Credentials](https://console.cloud.google.com/apis/credentials).
 2. Edit your OAuth 2.0 Web Client ID.
 3. Under **Authorized JavaScript origins**, add:
    ```text
+   https://web-production-e483c.up.railway.app
    http://localhost:8080
    http://localhost:3000
-   http://localhost
    ```
 4. Under **Authorized redirect URIs**, add:
    ```text
+   https://web-production-e483c.up.railway.app
    http://localhost:8080
    http://localhost:3000
    ```
-5. Click **Save** (allow 2-3 minutes to propagate).
+5. Click **Save** (changes propagate within 2-5 minutes).
 
 ---
 
 ## ☁️ Production Deployment
 
-### Option 1: Railway (Recommended — 3 Minutes)
+### Option 1: Railway Cloud (Recommended)
 1. Go to [railway.app](https://railway.app) and create a **New Project**.
 2. Click **Provision MySQL**.
-3. Click **New** -> **GitHub Repo** and connect this repository.
-4. Under **Variables** in your web service, set:
+3. Click **New** -> **GitHub Repo** and connect this repository: `Library-Management-System-Web`.
+4. Under **Variables** in your web service, configure:
    - `PORT`: `8080`
    - `DATABASE_URL`: `${{MySQL.MYSQL_URL}}` *(Automatically linked by Railway)*
    - `GOOGLE_CLIENT_ID`: Your Google Client ID
    - `ADMIN_EMAIL`: Your admin email
    - `ADMIN_PASSWORD`: Your admin password
-5. Under **Settings -> Networking**, click **Generate Domain** (e.g. `https://library-app.up.railway.app`).
-6. Add your Railway domain to **Authorized JavaScript origins** in Google Cloud Console.
+5. Under **Settings -> Networking**, click **Generate Domain**.
 
 ### Option 2: Docker Compose (VPS / Ubuntu / AWS EC2)
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/sovan6296410989-eng/Library-Management-System-Web.git
 cd LibraryManagementSystem
 docker-compose up -d --build
 ```
@@ -109,10 +146,10 @@ docker run -p 8080:8080 -e DATABASE_URL="mysql://user:pass@host:3306/db" library
 | `LIBRARY_DB_USER` | MySQL username | `root` |
 | `LIBRARY_DB_PASSWORD` | MySQL password | `721127` |
 | `GOOGLE_CLIENT_ID` | OAuth 2.0 Web Client ID | Default embedded |
-| `ADMIN_EMAIL` | Admin account bootstrap email | `sovan6296410989@gmail.com` |
-| `ADMIN_PASSWORD` | Admin account bootstrap password | `admin123` |
+| `ADMIN_EMAIL` | Admin bootstrap email | `sovan6296410989@gmail.com` |
+| `ADMIN_PASSWORD` | Admin bootstrap password | `admin123` |
 
 ---
 
 ## 📜 License
-MIT
+This project is open-source under the [MIT License](LICENSE).
