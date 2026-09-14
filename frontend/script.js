@@ -11,13 +11,20 @@ const API_BASE_URLS = (() => {
         return [configured.replace(/\/$/, "")];
     }
     const origin = typeof window !== "undefined" && window.location ? window.location.origin : "";
+    const hostname = typeof window !== "undefined" && window.location ? window.location.hostname : "";
+    const isLocalhost = hostname === "localhost" || hostname === "127.0.0.1";
+
     const candidates = [];
     if (origin && origin.startsWith("http")) {
         candidates.push(`${origin}/api`);
         candidates.push("/api");
     }
-    candidates.push("http://localhost:3000/api");
-    candidates.push("http://localhost:8080/api");
+    // Only fall back to localhost if running on a local desktop machine!
+    // On a mobile phone, probing localhost will fail or hang.
+    if (isLocalhost) {
+        candidates.push("http://localhost:3000/api");
+        candidates.push("http://localhost:8080/api");
+    }
     return [...new Set(candidates)];
 })();
 
@@ -196,14 +203,16 @@ function renderGoogleButton(containerId) {
     if (!container || !window.google || !window.google.accounts || !window.google.accounts.id) return;
     try {
         container.innerHTML = "";
+        const availableWidth = container.offsetWidth || 280;
+        const buttonWidth = Math.min(320, Math.max(220, availableWidth));
         window.google.accounts.id.renderButton(container, {
             theme: "outline",
             size: "large",
-            width: 320,
+            width: buttonWidth,
             text: "continue_with"
         });
     } catch (err) {
-        console.warn("Google button render error for " + containerId, err);
+        console.warn("Google button render note for " + containerId, err);
     }
 }
 

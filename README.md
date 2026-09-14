@@ -74,8 +74,16 @@ npm run dev
 *(Or `node start-all.js`)*
 
 The system will compile the Java backend and launch the servers:
-- **Primary Access URL**: [http://localhost:8080](http://localhost:8080)
-- **Secondary Proxy URL**: [http://localhost:3000](http://localhost:3000)
+- **Primary Access URL (Desktop)**: [http://localhost:8080](http://localhost:8080)
+- **Secondary Proxy URL (Desktop)**: [http://localhost:3000](http://localhost:3000)
+
+### 📱 Accessing from Mobile Phone (Chrome / Safari)
+To open and test the application on your phone's browser:
+1. **Connect both devices**: Ensure your phone and PC are connected to the **same Wi-Fi network**.
+2. **Find your Wi-Fi IPv4 address**: The server prints this automatically upon starting (e.g. `10.128.107.212` or `192.168.x.x`). You can also run `ipconfig` in PowerShell to check.
+3. **Open Chrome on your phone**: Type `http://<YOUR-PC-IP>:8080` or `http://<YOUR-PC-IP>:3000` (e.g. `http://10.128.107.212:8080`).
+   > ⚠️ **Important**: Do not use `localhost` or `127.0.0.1` on your phone! On a phone, `localhost` points to the phone itself, not your PC.
+4. **Windows Firewall**: If the page does not load on your phone, allow Java / Node.js in Windows Defender Firewall or temporarily add an inbound rule for ports `8080` and `3000`.
 
 ---
 

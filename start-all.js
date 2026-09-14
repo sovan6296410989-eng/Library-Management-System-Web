@@ -1,13 +1,34 @@
 const { spawn, execSync } = require("child_process");
 const path = require("path");
+const os = require("os");
 
 const ROOT_DIR = __dirname;
 const JAR_PATH = path.join(ROOT_DIR, "lib", "mysql-connector-j-26.7.0.jar");
 const CP_SEP = process.platform === "win32" ? ";" : ":";
 const CLASSPATH = `.${CP_SEP}${JAR_PATH}`;
 
+function getLocalIpAddresses() {
+  const interfaces = os.networkInterfaces();
+  const addresses = [];
+  for (const name of Object.keys(interfaces)) {
+    for (const net of interfaces[name]) {
+      if (net.family === "IPv4" && !net.internal) {
+        addresses.push(net.address);
+      }
+    }
+  }
+  return addresses;
+}
+
+const localIps = getLocalIpAddresses();
+
 console.log("=======================================================");
 console.log("🚀 Starting Library Management System Full-Stack App...");
+console.log("💻 Local PC:       http://localhost:8080 (or :3000)");
+localIps.forEach(ip => {
+  console.log(`📱 Mobile (Phone): http://${ip}:8080 (or :3000)`);
+});
+console.log("ℹ️  To open on phone Chrome: connect phone to same Wi-Fi");
 console.log("=======================================================");
 
 // 1. Compile Java

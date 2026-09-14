@@ -105,6 +105,21 @@ const server = http.createServer((request, response) => {
   sendFile(response, filePath);
 });
 
+const os = require("os");
+
+function getLocalIpAddresses() {
+  const interfaces = os.networkInterfaces();
+  const addresses = [];
+  for (const name of Object.keys(interfaces)) {
+    for (const net of interfaces[name]) {
+      if (net.family === "IPv4" && !net.internal) {
+        addresses.push(net.address);
+      }
+    }
+  }
+  return addresses;
+}
+
 function listenOnPreferredPort() {
   server.on("error", (error) => {
     if (error && error.code === "EADDRINUSE") {
@@ -114,15 +129,16 @@ function listenOnPreferredPort() {
     throw error;
   });
 
-  server.listen(PORT, () => {
+  server.listen(PORT, "0.0.0.0", () => {
     console.log(`=======================================================`);
     console.log(`Library Management System is running at:`);
-    console.log(`👉 http://localhost:${PORT}`);
+    console.log(`💻 Local PC:       http://localhost:${PORT}`);
+    const localIps = getLocalIpAddresses();
+    localIps.forEach(ip => {
+      console.log(`📱 Mobile (Phone): http://${ip}:${PORT}`);
+    });
     console.log(`API requests proxied to: ${BACKEND_URL}`);
-    console.log(``);
-    console.log(`For Google Sign-In in Google Cloud Console:`);
-    console.log(`- Authorized JavaScript origins: http://localhost:${PORT}`);
-    console.log(`- Authorized redirect URIs:      http://localhost:${PORT}`);
+    console.log(`ℹ️  Ensure your phone and PC are on the same Wi-Fi`);
     console.log(`=======================================================`);
   });
 }

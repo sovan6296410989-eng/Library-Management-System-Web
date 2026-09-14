@@ -58,21 +58,43 @@ public class Server {
         int port = Integer.parseInt(System.getenv().getOrDefault("BACKEND_PORT",
                 System.getenv().getOrDefault("PORT", String.valueOf(DEFAULT_PORT))));
         try {
-            HttpServer server = HttpServer.create(new InetSocketAddress(port), 0);
+            HttpServer server = HttpServer.create(new InetSocketAddress("0.0.0.0", port), 0);
             server.createContext("/api", Server::handleRequest);
             server.createContext("/health", Server::handleRequest);
             server.createContext("/", Server::handleRoot);
             server.setExecutor(null);
 
-            System.out.println("=================================");
-            System.out.println("Library Management System Started");
-            System.out.println("👉 Access URL: http://localhost:" + port);
-            System.out.println("Google OAuth Origin: http://localhost:" + port);
-            System.out.println("=================================");
+            System.out.println("==================================================");
+            System.out.println("📚 Library Management System Server Running");
+            System.out.println("💻 Local PC:       http://localhost:" + port);
+            for (String ip : getLocalIpAddresses()) {
+                System.out.println("📱 Mobile (Phone): http://" + ip + ":" + port);
+            }
+            System.out.println("ℹ️  To open on phone: ensure phone is on same Wi-Fi");
+            System.out.println("==================================================");
             server.start();
         } catch (java.net.BindException e) {
             throw new IllegalStateException("Port " + port + " is already in use. Stop the process using it, then restart the app.", e);
         }
+    }
+
+    private static java.util.List<String> getLocalIpAddresses() {
+        java.util.List<String> ips = new java.util.ArrayList<>();
+        try {
+            java.util.Enumeration<java.net.NetworkInterface> interfaces = java.net.NetworkInterface.getNetworkInterfaces();
+            while (interfaces.hasMoreElements()) {
+                java.net.NetworkInterface iface = interfaces.nextElement();
+                if (iface.isLoopback() || !iface.isUp()) continue;
+                java.util.Enumeration<java.net.InetAddress> addresses = iface.getInetAddresses();
+                while (addresses.hasMoreElements()) {
+                    java.net.InetAddress addr = addresses.nextElement();
+                    if (addr instanceof java.net.Inet4Address && !addr.isLoopbackAddress()) {
+                        ips.add(addr.getHostAddress());
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+        return ips;
     }
 
     private static void handleRoot(HttpExchange exchange) throws IOException {
