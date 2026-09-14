@@ -19,12 +19,6 @@ The application is deployed and running live on Railway Cloud:
 * **🛠️ Admin Dashboard**: **[https://web-production-e483c.up.railway.app/dashboard.html](https://web-production-e483c.up.railway.app/dashboard.html)**
 * **👤 User / Student Dashboard**: **[https://web-production-e483c.up.railway.app/user-dashboard.html](https://web-production-e483c.up.railway.app/user-dashboard.html)**
 
-### 🔑 Demo Admin Credentials
-| Role | Email | Password |
-| :--- | :--- | :--- |
-| **Administrator** | `sovan6296410989@gmail.com` | `admin123` |
-
-*(Users can register new accounts anytime via email/password or one-click Google Sign-In).*
 
 ---
 
@@ -140,14 +134,14 @@ docker run -p 8080:8080 -e DATABASE_URL="mysql://user:pass@host:3306/db" library
 
 | Variable | Description | Default |
 | :--- | :--- | :--- |
-| `PORT` / `BACKEND_PORT` | Port for the application | `8080` (Java) / `3000` (Node) |
-| `LIBRARY_DB_URL` | JDBC database connection string | `jdbc:mysql://localhost:3306/library_db` |
+| `PORT` / `BACKEND_PORT` | Port for the application 
+| `LIBRARY_DB_URL` | JDBC database connection string 
 | `DATABASE_URL` / `MYSQL_URL` | Cloud MySQL connection URL | Auto-converted to JDBC format |
-| `LIBRARY_DB_USER` | MySQL username | `root` |
-| `LIBRARY_DB_PASSWORD` | MySQL password | `721127` |
+| `LIBRARY_DB_USER` | MySQL username 
+| `LIBRARY_DB_PASSWORD` | MySQL password 
 | `GOOGLE_CLIENT_ID` | OAuth 2.0 Web Client ID | Default embedded |
-| `ADMIN_EMAIL` | Admin bootstrap email | `sovan6296410989@gmail.com` |
-| `ADMIN_PASSWORD` | Admin bootstrap password | `admin123` |
+| `ADMIN_EMAIL` | Admin bootstrap email
+| `ADMIN_PASSWORD` | Admin bootstrap password 
 
 ---
 
