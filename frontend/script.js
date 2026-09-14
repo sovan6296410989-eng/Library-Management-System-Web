@@ -364,15 +364,26 @@ function renderBooks(books) {
 }
 
 function renderMembers(members) {
-    const targets = ["memberTableBody", "userMemberTableBody"];
-    targets.forEach(id => {
-        const table = document.getElementById(id);
-        if (table) {
-            table.innerHTML = members.length
-                ? members.map(member => `<tr><td>${member.memberId}</td><td>${escapeHtml(member.name)}</td></tr>`).join("")
-                : '<tr><td colspan="2">No members found.</td></tr>';
-        }
-    });
+    const adminTable = document.getElementById("memberTableBody");
+    if (adminTable) {
+        adminTable.innerHTML = members.length
+            ? members.map(member => `
+                <tr>
+                    <td>${member.memberId}</td>
+                    <td>${escapeHtml(member.name)}</td>
+                    <td>
+                        <button class="danger-btn table-btn" onclick="deleteMember(${member.memberId}, '${escapeHtml(member.name).replace(/'/g, "\\'")}')">Remove</button>
+                    </td>
+                </tr>`).join("")
+            : '<tr><td colspan="3">No members found.</td></tr>';
+    }
+
+    const userTable = document.getElementById("userMemberTableBody");
+    if (userTable) {
+        userTable.innerHTML = members.length
+            ? members.map(member => `<tr><td>${member.memberId}</td><td>${escapeHtml(member.name)}</td></tr>`).join("")
+            : '<tr><td colspan="2">No members found.</td></tr>';
+    }
 }
 
 async function loadLibraryData() {
@@ -564,6 +575,20 @@ async function deleteBook(bookId) {
     try {
         await apiRequest(`/books/${bookId}`, { method: "DELETE" });
         await loadLibraryData();
+    } catch (error) {
+        showApiError(error);
+    }
+}
+
+async function deleteMember(memberId, memberName) {
+    const label = memberName ? `"${memberName}" (ID: ${memberId})` : `member ${memberId}`;
+    if (!window.confirm(`Are you sure you want to remove ${label}? This cannot be undone.`)) {
+        return;
+    }
+
+    try {
+        await apiRequest(`/members/${memberId}`, { method: "DELETE" });
+        await loadMembers();
     } catch (error) {
         showApiError(error);
     }

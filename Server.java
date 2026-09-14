@@ -294,6 +294,12 @@ public class Server {
                 }
                 return;
             }
+            if (path.matches("/api/members/[0-9]+") && "DELETE".equalsIgnoreCase(method)) {
+                if (requireAdmin(exchange) != null) {
+                    deleteMember(exchange, getIdFromPath(path));
+                }
+                return;
+            }
 
             sendError(exchange, 404, "API endpoint not found");
         } catch (IllegalArgumentException e) {
@@ -1141,6 +1147,19 @@ public class Server {
                 return;
             }
             sendResponse(exchange, 200, "{\"message\":\"Book deleted successfully\"}");
+        }
+    }
+
+    private static void deleteMember(HttpExchange exchange, int memberId) throws Exception {
+        try (Connection con = dbconnection.getConnection();
+             PreparedStatement delete = con.prepareStatement(
+                     "DELETE FROM members WHERE member_id = ?")) {
+            delete.setInt(1, memberId);
+            if (delete.executeUpdate() == 0) {
+                sendError(exchange, 404, "Member not found");
+                return;
+            }
+            sendResponse(exchange, 200, "{\"message\":\"Member removed successfully\"}");
         }
     }
 

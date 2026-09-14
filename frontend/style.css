@@ -1393,6 +1393,20 @@ tbody tr:last-child td {
     background: #b91c1c;
 }
 
+.table-btn {
+    width: auto !important;
+    height: auto !important;
+    padding: 6px 12px !important;
+    font-size: 11px !important;
+    font-weight: 500 !important;
+    border-radius: 6px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    margin: 2px 4px 2px 0 !important;
+    white-space: nowrap !important;
+}
+
 
 /* =========================================================
    MODAL
